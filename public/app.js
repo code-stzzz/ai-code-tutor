@@ -125,11 +125,10 @@ function correctnessBadge(value) {
 }
 
 function typeBadge(value) {
-  if (!value) return null;
   const element = document.createElement('span');
-  element.className = 'badge badge--type';
+  element.className = value ? 'badge badge--type' : 'badge badge--type badge--type--pending';
   element.innerHTML = '<i data-lucide="tag"></i>';
-  element.appendChild(document.createTextNode(value));
+  element.appendChild(document.createTextNode(value || '待识别'));
   return element;
 }
 
@@ -314,7 +313,7 @@ function renderDashboard() {
           <section class="panel history-panel">
             <div class="panel__header">
               <h2>辅导记录</h2>
-              <span class="panel__hint">最近 200 条</span>
+              <span class="panel__hint" id="record-count">最近 200 条</span>
             </div>
             <div class="panel__body">
               <div class="record-filters" id="record-filters"></div>
@@ -409,6 +408,8 @@ function renderQuestionList() {
   const questions = state.currentTypeFilter
     ? state.questions.filter((question) => question.questionType === state.currentTypeFilter)
     : state.questions;
+  const countEl = document.getElementById('record-count');
+  if (countEl) countEl.textContent = `共 ${questions.length} 条`;
   if (questions.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -435,9 +436,10 @@ function createRecordItem(question) {
   title.className = 'record-title';
   title.textContent = question.preview || '未命名题目';
   title.title = question.problemText || title.textContent;
-  const type = typeBadge(question.questionType);
-  if (type) top.append(title, type);
-  top.append(statusBadge(question.status));
+  const badges = document.createElement('div');
+  badges.className = 'record-item__badges';
+  badges.append(typeBadge(question.questionType), statusBadge(question.status));
+  top.append(title, badges);
 
   const meta = document.createElement('div');
   meta.className = 'record-item__meta';
@@ -498,6 +500,8 @@ async function renderRecord(id) {
 }
 
 function renderRecordContent(question) {
+  const detailTitle = document.querySelector('.record-detail__title');
+  if (detailTitle) detailTitle.textContent = question.preview || '辅导记录';
   const subtitle = document.getElementById('record-subtitle');
   subtitle.textContent = '';
   const language = document.createElement('span');
@@ -507,9 +511,7 @@ function renderRecordContent(question) {
   time.innerHTML = '<i data-lucide="clock"></i>';
   time.appendChild(document.createTextNode(formatDate(question.createdAt)));
   const type = typeBadge(question.questionType);
-  subtitle.append(language, time);
-  if (type) subtitle.append(type);
-  subtitle.append(statusBadge(question.status));
+  subtitle.append(language, time, type, statusBadge(question.status));
 
   const content = document.getElementById('record-content');
   content.innerHTML = '';

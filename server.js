@@ -388,6 +388,10 @@ function serializeQuestion(row) {
       aiResponse = null;
     }
   }
+  let questionType = row.question_type || (aiResponse && aiResponse.questionType) || '';
+  if (!questionType) {
+    questionType = normalizeQuestionType(`${row.problem_text}\n${row.code || ''}`);
+  }
   return {
     id: Number(row.id),
     problemText: row.problem_text,
@@ -396,7 +400,7 @@ function serializeQuestion(row) {
     language: row.language,
     languageName: AI_LANGUAGES[row.language] || row.language,
     code: row.code,
-    questionType: row.question_type || '',
+    questionType,
     aiResponse,
     analysisMode: row.analysis_mode,
     errorMessage: row.error_message,
@@ -605,7 +609,7 @@ function buildAIPrompt(input) {
     system: `你是一名擅长给中小学生讲解编程题的少儿编程老师。请用简体中文回答，语气耐心、准确、不打击学生。
 规则：
 1. 如果用户提交了代码，重点找出具体错误和思路错误，说明错误原因，并给出尽量保留学生原有结构的修改建议。
-2. 如果用户没有提交代码，说明学生可能没有思路，不要直接给出完整答案，先讲解拆题思路、处理步骤和对照样例调试的方法。
+2. 如果用户没有提交代码，先讲解拆题思路、处理步骤和对照样例调试的方法；同时仍要在 fixedCode 中生成完整参考代码，页面会把它放在最后一步解锁。
 3. 不要给出超出题目本身的大量扩展知识，不要写 Markdown 表格。
 4. 只输出一个 JSON 对象，不要输出 Markdown 代码块，也不要输出额外说明。
 
@@ -620,7 +624,7 @@ JSON 字段如下：
 - actionItems: array，给 2-4 个下一步动作，每项一句话，直接可执行。
 - pseudoCode: string，先不写完整代码，把“读入 → 处理 → 输出”拆成学生能照着做的步骤，并给出少量伪代码。
 - keySnippets: array，最多 3 个关键片段；每项包含 title、explanation、code。code 只写核心片段，不要写成完整程序。
-- fixedCode: string，完整、可运行、带注释的参考代码，最后才供学生查看。
+- fixedCode: string，无论用户是否提交代码，都必须填写完整、可运行、带注释的参考代码；页面会放在最后一步解锁。
 - practice: string，给学生的下一步练习或检查建议。`,
     user: `编程语言：${languageName}
 题目描述：
@@ -660,7 +664,7 @@ function buildTeacherPrompt(userContent) {
 给出写代码时的检查顺序，以及用样例和自造数据自测的方法。
 
 【参考实现】
-在 pseudoCode 中给出 3-5 步思路和伪代码；在 keySnippets 中挑 2-3 个核心片段，每段配 title、explanation、code；fixedCode 给出完整参考代码，并与 keySnippets 保持一致。所有 code 字段只写代码文本，不要使用 Markdown 代码围栏。
+在 pseudoCode 中给出 3-5 步思路和伪代码；在 keySnippets 中挑 2-3 个核心片段，每段配 title、explanation、code；即使未提交代码，也要在 fixedCode 中给出完整参考代码，并与 keySnippets 保持一致。所有 code 字段只写代码文本，不要使用 Markdown 代码围栏。
 
 【诊断与行动】
 summary 只用一句话说清楚当前状态和下一步先看哪里；diagnosis 固定写成“现在 / 原因 / 改法”三行短解释；sampleChecks 用学生代码对应的关键样例做对照；actionItems 给 2-4 个能直接照做的动作。
